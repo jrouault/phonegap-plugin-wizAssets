@@ -20,31 +20,20 @@
  *
  */
 
-- (void)backgroundDownload:(CDVInvokedUrlCommand*)command { 
+- (void)backgroundDownloadWrapper:(NSDictionary *)args {
+    [self backgroundDownload:[args objectForKey:@"command"] fullDir:[args objectForKey:@"fullDir"] filePath:[args objectForKey:@"filePath"]];
+}
+
+- (void)backgroundDownload:(CDVInvokedUrlCommand*)command fullDir:(NSString *)fullDir filePath:(NSString *)filePath {
 
     // Create a pool  
     NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];  
     
     // url
     NSString *urlString = [command.arguments objectAtIndex:0];
-    // dir store path and name
-    NSString *savePath = [command.arguments objectAtIndex:1];
-    
-    
-    
-    // split storePath
-    NSMutableArray *pathSpliter = [[NSMutableArray alloc] initWithArray:[savePath componentsSeparatedByString:@"/"] copyItems:YES];
-    NSString *fileName = [pathSpliter lastObject];
-    // remove last object (filename)
-    [pathSpliter removeLastObject];
-    // join all dir(s)
-    NSString *storePath = [pathSpliter componentsJoinedByString:@"/"];
-    [pathSpliter release];
-    
     
     // holds our return data
     NSString* returnString;
-
     
     if (urlString) {
         
@@ -56,42 +45,23 @@
         
         WizLog(@"downloading ---------------- >%@", url);
         
-        
         NSData *urlData = [NSData dataWithContentsOfURL:url];
         
-        if ( urlData )
-        {
-            
-            // path to library caches
-            NSArray  *paths = NSSearchPathForDirectoriesInDomains(NSCachesDirectory, NSUserDomainMask, YES);
-            
-            NSString *documentsDirectory = [paths objectAtIndex:0]; 
-            NSString *gameDir = [[[NSBundle mainBundle] infoDictionary]   objectForKey:@"CFBundleName"];
-            NSString *fullDir = [NSString stringWithFormat:@"%@/%@/%@", documentsDirectory, gameDir, storePath];
-            NSString *filePath = [fullDir stringByAppendingPathComponent:fileName];
-            
-            if ([filemgr createDirectoryAtPath:fullDir withIntermediateDirectories:YES attributes:nil error: NULL] == YES)
-            {
-                
+        if (urlData) {
+            if ([filemgr createDirectoryAtPath:fullDir withIntermediateDirectories:YES attributes:nil error: NULL] == YES) {
                 // Success to create directory download data to temp and move to library/cache when complete
                 [urlData writeToFile:filePath atomically:YES];
                           
                 returnString = filePath;
-                               
             } else {
-                
                 // Fail to download
                 
                 returnString = @"error - failed download";
-
             }
-            
         } else {
-
             WizLog(@"ERROR: URL no exist");
             returnString = @"error - bad url";
         }
-        
     } else {
         returnString = @"error - no urlString";
     }
@@ -139,7 +109,6 @@
 }
 
 
-
 /*
  * downloadFile - download from an HTTP to app folder
  */
@@ -148,10 +117,55 @@
     WizLog(@"[WizAssetsPlugin] ******* downloadFile-> " );
     
     int count = [command.arguments count];
-	if(count > 0) {
-              
-        // start in background, pass though strings
-        [self performSelectorInBackground:@selector(backgroundDownload:) withObject:command];
+    if(count > 0) {
+        // dir store path and name
+        NSString *savePath = [command.arguments objectAtIndex:1];
+        // split storePath
+        NSMutableArray *pathSpliter = [[NSMutableArray alloc] initWithArray:[savePath componentsSeparatedByString:@"/"] copyItems:YES];
+        NSString *fileName = [pathSpliter lastObject];
+        // remove last object (filename)
+        [pathSpliter removeLastObject];
+        // join all dir(s)
+        NSString *storePath = [pathSpliter componentsJoinedByString:@"/"];
+
+        // path to library caches
+        NSArray  *paths = NSSearchPathForDirectoriesInDomains(NSCachesDirectory, NSUserDomainMask, YES);
+
+        NSString *documentsDirectory = [paths objectAtIndex:0];
+        NSString *gameDir = [[[NSBundle mainBundle] infoDictionary]   objectForKey:@"CFBundleName"];
+        NSString *fullDir = [NSString stringWithFormat:@"%@/%@/%@", documentsDirectory, gameDir, storePath];
+        NSString *filePath = [fullDir stringByAppendingPathComponent:fileName];
+
+
+        NSFileManager *fileManager = [NSFileManager defaultManager];
+        if ([fileManager fileExistsAtPath:filePath] == YES)
+        {
+            // Updating file modification date attribute
+            NSDate *now = [NSDate date];
+            NSDictionary *modificationDateAttr = [NSDictionary dictionaryWithObjectsAndKeys: now, NSFileModificationDate, nil];
+            [fileManager setAttributes:modificationDateAttr ofItemAtPath:filePath error:nil];
+
+            // holds our return data
+            NSString *returnString = filePath;
+
+            NSArray *callbackData = [[NSArray alloc] initWithObjects:command.callbackId, returnString, nil];
+
+            // download complete pass back confirmation to JS
+            [self completeDownload:callbackData];
+
+            [callbackData release];
+
+        } else {
+            NSDictionary *args = [NSDictionary dictionaryWithObjectsAndKeys:
+                                  command, @"command",
+                                  fullDir, @"fullDir",
+                                  filePath, @"filePath",
+                                  nil];
+            // start in background, pass though strings
+            [self performSelectorInBackground:@selector(backgroundDownloadWrapper:) withObject:args];
+        }
+        // clean up
+        [pathSpliter release];
         
     } else {
         

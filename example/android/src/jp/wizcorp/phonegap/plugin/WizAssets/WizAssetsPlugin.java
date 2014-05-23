@@ -16,6 +16,7 @@ package jp.wizcorp.phonegap.plugin.WizAssets;
 import java.io.*;
 import java.net.MalformedURLException;
 import java.net.URL;
+import java.util.Date;
 import java.util.zip.GZIPInputStream;
 
 import android.os.AsyncTask;
@@ -69,10 +70,27 @@ public class WizAssetsPlugin extends CordovaPlugin {
                 for (int i=0; i<splitURL.length-1; i++) {
                     dirName = dirName+splitURL[i]+"/";
                 }
-                PluginResult result = new PluginResult(PluginResult.Status.NO_RESULT);
-                result.setKeepCallback(true);
-                callbackContext.sendPluginResult(result);
-                downloadUrl(args.getString(0), dirName, fileName, "true", callbackContext);
+
+                String pathTostorage = cordova.getActivity().getApplicationContext().getCacheDir().getAbsolutePath() + File.separator;
+                File file = new File(pathTostorage + dirName + fileName);
+                if (file.exists()) {
+                    // File is already in cache folder, don't download it
+
+                    // Update the modification date of the file
+                    file.setLastModified(new Date().getTime());
+
+                    String result = "file://" + file.getAbsolutePath();
+
+                    callbackContext.success(result);
+                } else {
+                    // File is not in cache folder, download it
+
+                    PluginResult result = new PluginResult(PluginResult.Status.NO_RESULT);
+                    result.setKeepCallback(true);
+                    callbackContext.sendPluginResult(result);
+                    downloadUrl(args.getString(0), dirName, fileName, "true", callbackContext);
+                }
+
                 return true;
             } catch (JSONException e) {
                 callbackContext.error("Param errrors");
@@ -202,7 +220,7 @@ public class WizAssetsPlugin extends CordovaPlugin {
                 dir.mkdirs();
             }
 
-            File file = new File(pathTostorage + this.dirName + "/" + this.fileName);
+            File file = new File(pathTostorage + this.dirName + this.fileName);
             Log.d(TAG, "[downloadUrl] *********** pathTostorage pathTostorage+dirName+fileName > " + file.getAbsolutePath());
 
             if (this.overwrite.equals("false") && file.exists()){
@@ -265,12 +283,12 @@ public class WizAssetsPlugin extends CordovaPlugin {
 
             } catch (MalformedURLException e) {
                 Log.e("WizAssetsPlugin", "Bad url : ", e);
-                result = "file:///android_asset/" + this.dirName + "/" + this.fileName;
+                result = "file:///android_asset/" + this.dirName +  this.fileName;
                 this.callbackContext.error("notFoundError");
             } catch (Exception e) {
                 Log.e("WizAssetsPlugin", "Error : " + e);
                 e.printStackTrace();
-                result = "file:///android_asset/" + this.dirName + "/" + this.fileName;
+                result = "file:///android_asset/" + this.dirName + this.fileName;
                 this.callbackContext.error("unknownError");
             }
             return null;

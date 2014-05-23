@@ -27,7 +27,7 @@
 - (void)deleteFiles:(CDVInvokedUrlCommand*)command;
 // - (void)purgeEmptyDirectories:(CDVInvokedUrlCommand*)command;
 
-- (void)backgroundDownload:(CDVInvokedUrlCommand*)command;
+- (void)backgroundDownload:(CDVInvokedUrlCommand*)command fullDir:(NSString *)fullDir filePath:(NSString *)filePath;
 
 
 
