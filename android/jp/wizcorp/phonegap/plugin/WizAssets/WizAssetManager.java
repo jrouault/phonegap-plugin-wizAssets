@@ -23,6 +23,8 @@ import org.json.JSONException;
 import org.json.JSONObject;
 
 import android.content.Context;
+import android.content.SharedPreferences;
+import android.content.SharedPreferences.Editor;
 import android.database.Cursor;
 import android.database.CursorIndexOutOfBoundsException;
 import android.database.sqlite.SQLiteDatabase;
@@ -35,8 +37,12 @@ public class WizAssetManager {
 	private String TAG = "WizAssetManager";
 	private String DATABASE_EXTERNAL_FILE_PATH;
 	private String DATABASE_INTERNAL_FILE_PATH = "www/phonegap/plugin/wizAssets/";
+	private static final String WIZASSETS_PREFERENCES_KEY = "plugins.wizassets.preferences";
+	private static final String ASSETS_VERSION_KEY = "plugins.wizassets.assetsversion";
+	
 	// to manipulate the home of the db change this string
-	private String DATABASE_NAME = "assets.db";
+	private static final String DATABASE_NAME = "assets.db";
+	private static final String DATABASE_TABLE_NAME = "assets";
 	private SQLiteDatabase database;
 
 	boolean initialiseDatabase;
@@ -69,7 +75,7 @@ public class WizAssetManager {
 		try {
 			// select all and put to JSONObject
 	    	Cursor cursor;
-			cursor = database.rawQuery("select * from assets", null);
+			cursor = database.rawQuery("select * from " + DATABASE_TABLE_NAME, null);
 			String uri;
 			String filePath;
 			
@@ -134,7 +140,7 @@ public class WizAssetManager {
 
 		try {
 			// Will replace if exists
-			String sqlInsert = "insert or replace into assets values(?,?);";
+			String sqlInsert = "insert or replace into " + DATABASE_TABLE_NAME + " values(?,?)";
 			database.execSQL(sqlInsert, new Object[] { relativePath, absolutePath });
 		} catch (Exception e) {
 			Log.e(TAG, "error -- " + e.getMessage(), e);
@@ -146,7 +152,7 @@ public class WizAssetManager {
 		Cursor cursor = null;
 		try {
 			// Will replace if exists
-			String sqlsearch = "select filePath from assets where uri= ?;";
+			String sqlsearch = "select filePath from " + DATABASE_TABLE_NAME + " where uri= ?";
 			cursor = database.rawQuery(sqlsearch, new String[] { relpath });
 		} catch (Exception e) {
 			Log.e(TAG, "error -- " + e.getMessage(), e);
@@ -181,10 +187,29 @@ public class WizAssetManager {
 	public void deleteFile(String filePath) {
 		try {
 			// Delete file
-			String sqlsearch = "delete from assets where filePath= ?;";
-			database.rawQuery(sqlsearch, new String[] { filePath }).moveToFirst();;
+			database.delete(DATABASE_TABLE_NAME, "filePath like ?", new String[] { filePath + '%' });
 		} catch (Exception e) {
 			Log.e(TAG, "Delete file error -- " + e.getMessage(), e);
 		}
+	}
+
+	public String getAssetsVersion() {
+		SharedPreferences sharedPreferences = that.getSharedPreferences(WIZASSETS_PREFERENCES_KEY, Context.MODE_PRIVATE);
+		if (sharedPreferences == null || !sharedPreferences.contains(ASSETS_VERSION_KEY)) {
+			return null;
+		}
+
+		return sharedPreferences.getString(ASSETS_VERSION_KEY, "");
+	}
+	
+	public void updateAssetsVersion(String newVersion) {
+		SharedPreferences sharedPreferences = that.getSharedPreferences(WIZASSETS_PREFERENCES_KEY, Context.MODE_PRIVATE);
+		if (sharedPreferences == null) {
+			return;
+		}
+
+		Editor editor = sharedPreferences.edit();
+		editor.putString(ASSETS_VERSION_KEY, newVersion);
+		editor.commit();
 	}
 }
