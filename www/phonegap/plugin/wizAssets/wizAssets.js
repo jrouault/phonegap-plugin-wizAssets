@@ -51,8 +51,8 @@ var wizAssets = {
         return cordova.exec(s, f, "WizAssetsPlugin", "getAssetsVersion", []);
     },
 
-    updateAssetsVersion: function(version, changedFiles, s, f) {
-        return cordova.exec(s, f, "WizAssetsPlugin", "updateAssetsVersion", [version, changedFiles]);
+    upgradeAssets: function(version, changedFiles, s, f) {
+        return cordova.exec(s, f, "WizAssetsPlugin", "upgradeAssets", [version, changedFiles]);
     },
 
     purgeEmptyDirectories: function(s, f) {

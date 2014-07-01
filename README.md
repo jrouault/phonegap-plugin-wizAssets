@@ -86,12 +86,12 @@ wizAssets.getFileURI("img/ui/logo.jpg", successCallback, failCallback);
 
 - A success returns a string representing the version of the assets
 
-### updateAssetsVersion()
+### upgradeAssets()
 
-**wizAssets.updateAssetsVersion(String version, Array filesToRemove, Function success, Function fail);**
+**wizAssets.upgradeAssets(String version, Array filesToRemove, Function success, Function fail);**
 
 - example;
 
 ```
-wizAssets.getFileURI("1.2", [ "tutorial/", "level1/background.png" ], successCallback, failCallback);
+wizAssets.upgradeAssets("1.2", [ "tutorial/", "level1/background.png" ], successCallback, failCallback);
 ```
