@@ -12,7 +12,7 @@
 #import <Cordova/CDVPlugin.h>
 
 @interface WizAssetsPlugin : CDVPlugin <UIWebViewDelegate> {
-    
+
     int scanCounter;
     NSMutableArray *storePaths;
 }
@@ -26,7 +26,7 @@
 - (void)deleteFile:(CDVInvokedUrlCommand*)command;
 - (void)deleteFiles:(CDVInvokedUrlCommand*)command;
 - (void)getAssetsVersion:(CDVInvokedUrlCommand*)command;
-- (void)updateAssetsVersion:(CDVInvokedUrlCommand*)command;
+- (void)upgradeAssets:(CDVInvokedUrlCommand*)command;
 // - (void)purgeEmptyDirectories:(CDVInvokedUrlCommand*)command;
 
 - (void)backgroundDownload:(CDVInvokedUrlCommand*)command fullDir:(NSString *)fullDir filePath:(NSString *)filePath;

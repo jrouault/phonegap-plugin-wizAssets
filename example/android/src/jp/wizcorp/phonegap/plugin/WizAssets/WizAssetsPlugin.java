@@ -1,11 +1,11 @@
 /*
- *  __    __ _                  _     _                _                                                  ___ _             _       
- * / / /\ \ (_)______ _ _ __ __| |   /_\  ___ ___  ___| |_    /\/\   __ _ _ __   __ _  __ _  ___ _ __    / _ \ |_   _  __ _(_)_ __  
- * \ \/  \/ / |_  / _` | '__/ _` |  //_\\/ __/ __|/ _ \ __|  /    \ / _` | '_ \ / _` |/ _` |/ _ \ '__|  / /_)/ | | | |/ _` | | '_ \ 
+ *  __    __ _                  _     _                _                                                  ___ _             _
+ * / / /\ \ (_)______ _ _ __ __| |   /_\  ___ ___  ___| |_    /\/\   __ _ _ __   __ _  __ _  ___ _ __    / _ \ |_   _  __ _(_)_ __
+ * \ \/  \/ / |_  / _` | '__/ _` |  //_\\/ __/ __|/ _ \ __|  /    \ / _` | '_ \ / _` |/ _` |/ _ \ '__|  / /_)/ | | | |/ _` | | '_ \
  *  \  /\  /| |/ / (_| | | | (_| | /  _  \__ \__ \  __/ |_  / /\/\ \ (_| | | | | (_| | (_| |  __/ |    / ___/| | |_| | (_| | | | | |
  *   \/  \/ |_/___\__,_|_|  \__,_| \_/ \_/___/___/\___|\__| \/    \/\__,_|_| |_|\__,_|\__, |\___|_|    \/    |_|\__,_|\__, |_|_| |_|
- *                                                                                    |___/                           |___/        
- * @author 	Ally Ogilvie  
+ *                                                                                    |___/                           |___/
+ * @author 	Ally Ogilvie
  * @copyright Wizcorp Inc. [ Incorporated Wizards ] 2012
  * @file	- wizAssetManagerPlugin.java
  * @about	- Handle JavaScript API calls from PhoneGap to WizAssetsPlugin
@@ -51,7 +51,7 @@ public class WizAssetsPlugin extends CordovaPlugin {
 	private static final String DELETE_FILE_ACTION = "deleteFile";
 	private static final String DELETE_FILES_ACTION = "deleteFiles";
 	private static final String GET_ASSETS_VERSION_ACTION = "getAssetsVersion";
-	private static final String UPDATE_ASSETS_VERSION_ACTION = "upgradeAssets";
+	private static final String UPGRADE_ASSETS_ACTION = "upgradeAssets";
 
 	private String pathToStorage;
 
@@ -174,7 +174,7 @@ public class WizAssetsPlugin extends CordovaPlugin {
 
 			callbackContext.success(assetsVersion);
 			return true;
-		} else if (action.equals(UPDATE_ASSETS_VERSION_ACTION)) {
+		} else if (action.equals(UPGRADE_ASSETS_ACTION)) {
 			if (args.length() < 2) {
 				callbackContext.error("Not enough parameters.");
 				return true;
