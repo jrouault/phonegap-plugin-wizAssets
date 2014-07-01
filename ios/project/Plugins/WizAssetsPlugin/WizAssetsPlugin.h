@@ -17,7 +17,7 @@
     NSMutableArray *storePaths;
 }
 
-/* 
+/*
  *  WizAssetsPlugin methods
  */
 - (void)downloadFile:(CDVInvokedUrlCommand*)command;
@@ -25,10 +25,10 @@
 - (void)getFileURIs:(CDVInvokedUrlCommand*)command;
 - (void)deleteFile:(CDVInvokedUrlCommand*)command;
 - (void)deleteFiles:(CDVInvokedUrlCommand*)command;
+- (void)getAssetsVersion:(CDVInvokedUrlCommand*)command;
+- (void)updateAssetsVersion:(CDVInvokedUrlCommand*)command;
 // - (void)purgeEmptyDirectories:(CDVInvokedUrlCommand*)command;
 
 - (void)backgroundDownload:(CDVInvokedUrlCommand*)command fullDir:(NSString *)fullDir filePath:(NSString *)filePath;
-
-
 
 @end

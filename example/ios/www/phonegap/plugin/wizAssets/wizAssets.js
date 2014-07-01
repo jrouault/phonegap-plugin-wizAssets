@@ -8,53 +8,61 @@ cordova.define("jp.wizcorp.phonegap.plugin.wizAssetsPlugin", function(require, e
 	 *
 	 *
 	 */
-	
+
 	var exec = require("cordova/exec");
-	
-	var wizAssets = { 
-	    
-	    
+
+	var wizAssets = {
+
+
 		downloadFile: function(url, filePath, s, f) {
-		    
+
 		    window.setTimeout(function () {
 		                      cordova.exec(s, f, "WizAssetsPlugin", "downloadFile", [url, filePath]);
 		                      }, 0);
 		},
-		    
+
 		deleteFile: function(uri, s, f) {
-		    
+
 		    return cordova.exec(s, f, "WizAssetsPlugin", "deleteFile", [uri]);
-		    
+
 		},
-		    
-		    
+
+
 		deleteFiles: function(uris, s, f) {
-		    
+
 		    return cordova.exec(s, f, "WizAssetsPlugin", "deleteFiles", uris );
-		    
+
 		},
-		    
-		    
+
+
 		getFileURIs: function(s, f) {
-		    
+
 		    return cordova.exec(s, f, "WizAssetsPlugin", "getFileURIs", [] );
-		    
+
 		},
-		    
-		    
+
+
 		getFileURI: function(uri, s, f) {
-		    
+
 		    return cordova.exec(s, f, "WizAssetsPlugin", "getFileURI", [uri] );
-		    
+
 		},
-		    
+
+	    getAssetsVersion: function(s, f) {
+	        return cordova.exec(s, f, "WizAssetsPlugin", "getAssetsVersion", []);
+	    },
+
+	    upgradeAssets: function(version, changedFiles, s, f) {
+	        return cordova.exec(s, f, "WizAssetsPlugin", "upgradeAssets", [version, changedFiles]);
+	    },
+
 	    purgeEmptyDirectories: function(s, f) {
 	        // todo
 	        s();
-	        
+
 	    }
-	    
-	    
+
+
 	};
-module.exports = wizAssets;
+	module.exports = wizAssets;
 });

@@ -1,4 +1,4 @@
-# phonegap-plugin-wizAssets 
+# phonegap-plugin-wizAssets
 
 - PhoneGap Version : 3.0
 - last update : 15/11/2013
@@ -8,13 +8,13 @@
 PhoneGap plugin for managing application assets with javascript asset maps. Includes( iOS background threaded) downloadFile, getFileURI, getFileURIs, deleteFile.
 
 
-## Install (with Plugman) 
+## Install (with Plugman)
 
 	cordova plugin add https://github.com/Wizcorp/phonegap-plugin-wizAssets
 	cordova build ios
-	
+
 	< or >
-	
+
 	phonegap local plugin add https://github.com/Wizcorp/phonegap-plugin-wizAssets
 	phonegap build ios
 
@@ -30,7 +30,7 @@ PhoneGap plugin for managing application assets with javascript asset maps. Incl
 - A success returns URI string like; file://documents/settings/img/cards/card001.jpg <br />
 - example;
 
-``` 
+```
 wizAssets.downloadFile("http://google.com/logo.jpg", "img/ui/logo.jpg", successCallback, failCallback);
 ```
 
@@ -74,8 +74,24 @@ wizAssets.getFileURI("img/ui/logo.jpg", successCallback, failCallback);
 ```
 {
 
-    "img/ui/loader.gif"  : "/sdcard/<appname>/img/ui/loading.gif", 
-    "img/cards/card001.jpg" : "file://documents/settings/img/cards/card001.jpg" 
+    "img/ui/loader.gif"  : "/sdcard/<appname>/img/ui/loading.gif",
+    "img/cards/card001.jpg" : "file://documents/settings/img/cards/card001.jpg"
 
-} 
+}
+```
+
+### getAssetsVersion()
+
+**wizAssets.getAssetsVersion(Function success, Function fail);**
+
+- A success returns a string representing the version of the assets
+
+### upgradeAssets()
+
+**wizAssets.upgradeAssets(String version, Array filesToRemove, Function success, Function fail);**
+
+- example;
+
+```
+wizAssets.upgradeAssets("1.2", [ "tutorial/", "level1/background.png" ], successCallback, failCallback);
 ```

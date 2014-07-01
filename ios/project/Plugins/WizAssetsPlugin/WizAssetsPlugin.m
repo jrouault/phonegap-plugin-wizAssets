@@ -10,9 +10,10 @@
 #import "WizAssetsPlugin.h"
 #import "WizDebugLog.h"
 
-@implementation WizAssetsPlugin 
+NSString *const assetsVersionKey = @"plugins.wizassets.assetsversion";
+NSString *const assetsErrorKey = @"plugins.wizassets.errors";
 
-
+@implementation WizAssetsPlugin
 
 /*
  *
@@ -21,14 +22,16 @@
  */
 
 - (void)backgroundDownloadWrapper:(NSDictionary *)args {
+    // Create a pool
+    NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
+
     [self backgroundDownload:[args objectForKey:@"command"] fullDir:[args objectForKey:@"fullDir"] filePath:[args objectForKey:@"filePath"]];
+    
+    // clean up
+    [pool release];
 }
 
 - (void)backgroundDownload:(CDVInvokedUrlCommand*)command fullDir:(NSString *)fullDir filePath:(NSString *)filePath {
-
-    // Create a pool  
-    NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];  
-    
     // url
     NSString *urlString = [command.arguments objectAtIndex:0];
     
@@ -73,12 +76,6 @@
     [self performSelectorOnMainThread:@selector(completeDownload:) withObject:callbackData waitUntilDone:YES];
     
     [callbackData release];
-    
-    // clean up
-    [pool release]; 
-
-
-
 }
 
 /*
@@ -186,6 +183,23 @@
     
 }
 
+- (void)getAssetsVersion:(CDVInvokedUrlCommand*)command {
+    NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
+    NSString *assetsVersion = [defaults stringForKey:assetsVersionKey];
+
+    CDVPluginResult* pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsString:assetsVersion];
+    [self writeJavascript: [pluginResult toSuccessCallbackString:command.callbackId]];
+}
+
+- (void)updateAssetsVersion:(CDVInvokedUrlCommand*)command {
+    if (command.arguments.count < 2) {
+        CDVPluginResult* pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR messageAsString:@"Not enough parameters."];
+        [self writeJavascript: [pluginResult toErrorCallbackString:command.callbackId]];
+        return;
+    }
+
+    [self deleteAssets:command isUri:YES];
+}
 
 
 /*
@@ -367,7 +381,104 @@
     
 }
 
+/*
+ * deleteAssets - delete all resources specified in array from app folder
+ */
+- (void)deleteAssets:(CDVInvokedUrlCommand *)command isUri:(BOOL)isUri {
+    NSDictionary *args = [NSDictionary dictionaryWithObjectsAndKeys:
+                          command, @"command",
+                          [NSNumber numberWithBool:isUri], @"isUri",
+                          nil];
+    [self performSelectorInBackground:@selector(backgroundDeleteWrapper:) withObject:args];
+}
 
+- (void)backgroundDeleteWrapper:(NSDictionary *)args {
+    // Create a pool
+    NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
+
+    [self backgroundDelete:[args objectForKey:@"command"] isUri:[[args objectForKey:@"isUri"] boolValue]];
+
+    // clean up
+    [pool release];
+}
+
+- (void)backgroundDelete:(CDVInvokedUrlCommand *)command isUri:(BOOL)isUri {
+    
+    NSString *newVersion = [NSString stringWithFormat:@"%@", [command.arguments objectAtIndex:0]];
+    NSMutableArray *fileArray = [[NSMutableArray alloc] initWithArray:[command.arguments objectAtIndex:1] copyItems:YES];
+    
+    NSError *error = nil;
+    for (int i=0; i< [fileArray count]; i++) {
+        NSString *filePath = [fileArray objectAtIndex:i];
+        [self deleteAsset:filePath isUri:isUri error:&error];
+        if (error) {
+            error = [NSError errorWithDomain:assetsErrorKey code:100 userInfo:nil];
+            break;
+        }
+    }
+    
+    NSArray* callbackData = [[NSArray alloc] initWithObjects:command.callbackId, newVersion, error, nil];
+    
+    // download complete pass back confirmation to JS
+    [self performSelectorOnMainThread:@selector(completeDelete:) withObject:callbackData waitUntilDone:YES];
+    
+    [callbackData release];
+}
+
+/*
+ * completeDelete - callback after delete
+ */
+- (void)completeDelete:(NSArray*)callbackdata {
+    NSString *callbackId = [callbackdata objectAtIndex:0];
+    NSString *newVersion = [callbackdata objectAtIndex:1];
+    NSError *error = nil;
+    if ([callbackdata count] > 2) {
+        error = [callbackdata objectAtIndex:2];
+    }
+    
+    if (error) {
+        CDVPluginResult* pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR messageAsString:@"Deleting files failed."];
+        [self writeJavascript: [pluginResult toErrorCallbackString:callbackId]];
+        return;
+    }
+    
+    NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
+    [defaults setObject:newVersion forKey:assetsVersionKey];
+    [defaults synchronize];
+    
+    CDVPluginResult* pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK];
+    [self writeJavascript: [pluginResult toSuccessCallbackString:callbackId]];
+}
+
+/*
+ * deleteAsset - delete resource specified in string from app folder
+ */
+- (void)deleteAsset:(NSString *)filePath isUri:(BOOL)isUri error:(NSError **)error {
+    NSFileManager *filemgr = [NSFileManager defaultManager];
+
+    if (filePath && [filePath length] > 0) {
+        // Check if the file is not in the bundle..
+        NSString *bundlePath = [[NSBundle mainBundle] resourcePath];
+        if ([filePath rangeOfString:bundlePath].location == NSNotFound) {
+            if (isUri) {
+                filePath = [self buildAssetFilePathFromUri:filePath];
+            }
+
+            NSError *localError = nil;
+            if (![filemgr removeItemAtPath:filePath error:&localError]) {
+                *error = [NSError errorWithDomain:assetsErrorKey code:200 userInfo:nil];
+            }
+        } else {
+            *error = [NSError errorWithDomain:assetsErrorKey code:200 userInfo:nil];
+        }
+    }
+}
+
+- (NSString *)buildAssetFilePathFromUri:(NSString *)uri {
+    NSString * documentsPath = [NSSearchPathForDirectoriesInDomains(NSCachesDirectory, NSUserDomainMask, YES) objectAtIndex:0];
+    NSString * gamePath = [[[NSBundle mainBundle] infoDictionary] objectForKey:@"CFBundleName"];
+    return [documentsPath stringByAppendingFormat:@"/%@/%@", gamePath, uri];
+}
 
 /*
  * deleteFile - delete all resources specified in string from app folder
@@ -475,6 +586,5 @@
     [self writeJavascript: [pluginResult toSuccessCallbackString:command.callbackId]];
     
 }
-
 
 @end

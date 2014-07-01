@@ -10,7 +10,7 @@
  * @copyright Wizcorp Inc. [ Incorporated Wizards ] 2012
  * @file 	- wizAssetManager.java
  * @about 	- JavaScript download and update asset example for PhoneGap
-*/
+ */
 package jp.wizcorp.phonegap.plugin.WizAssets;
 
 import java.io.File;
@@ -23,6 +23,8 @@ import org.json.JSONException;
 import org.json.JSONObject;
 
 import android.content.Context;
+import android.content.SharedPreferences;
+import android.content.SharedPreferences.Editor;
 import android.database.Cursor;
 import android.database.CursorIndexOutOfBoundsException;
 import android.database.sqlite.SQLiteDatabase;
@@ -35,16 +37,20 @@ public class WizAssetManager {
 	private String TAG = "WizAssetManager";
 	private String DATABASE_EXTERNAL_FILE_PATH;
 	private String DATABASE_INTERNAL_FILE_PATH = "www/phonegap/plugin/wizAssets/";
+	private static final String WIZASSETS_PREFERENCES_KEY = "plugins.wizassets.preferences";
+	private static final String ASSETS_VERSION_KEY = "plugins.wizassets.assetsversion";
+
 	// to manipulate the home of the db change this string
-	private String DATABASE_NAME = "assets.db";
+	private static final String DATABASE_NAME = "assets.db";
+	private static final String DATABASE_TABLE_NAME = "assets";
 	private SQLiteDatabase database;
 
 	boolean initialiseDatabase;
 	Context that;
-	
+
 	public WizAssetManager(Context context) {
 		Log.d(TAG, "Booting Wizard Asset Manager.");
-		
+
 		// context is application context
 		that = context;
 		DATABASE_EXTERNAL_FILE_PATH =  that.getCacheDir().getAbsolutePath();
@@ -57,9 +63,9 @@ public class WizAssetManager {
 			Log.d(TAG, "DB already initiated.");
 		}
 	}
-	
+
 	public JSONObject getAllAssets() {
-		
+
 		// try to open database from external storage (we should have moved it there), 
 		// if nothing in the external storage move the app version out to external
 		// if not existing internal, return empty object and we can stream the assets in
@@ -68,11 +74,11 @@ public class WizAssetManager {
 
 		try {
 			// select all and put to JSONObject
-	    	Cursor cursor;
-			cursor = database.rawQuery("select * from assets", null);
+			Cursor cursor;
+			cursor = database.rawQuery("select * from " + DATABASE_TABLE_NAME, null);
 			String uri;
 			String filePath;
-			
+
 			Log.d(TAG, "move cursor");
 			while (cursor.moveToNext()) {
 				uri = cursor.getString(cursor.getColumnIndex("uri"));
@@ -81,11 +87,11 @@ public class WizAssetManager {
 				try {
 					returnObject.put(uri, filePath);
 				} catch (JSONException e) {
-				    // log, ignore
+					// log, ignore
 					Log.e(TAG, "JSON error -- " + e.getMessage(), e);
 				}
 			}
-		
+
 			cursor.close();
 			Log.d(TAG, "returnObject -> " + returnObject.toString()); 
 
@@ -96,36 +102,36 @@ public class WizAssetManager {
 		}
 		return returnObject;
 	}
-	
+
 	private void buildDB() {
 		// Init DB from bundle assets out to storage
 		Log.d(TAG, "Init DB");
-		
+
 		// Open the .db file from assets directory
 		try {
 			InputStream is = that.getAssets().open(DATABASE_INTERNAL_FILE_PATH + DATABASE_NAME);
 
 			// Copy the database into the destination
 			OutputStream os = new FileOutputStream(DATABASE_EXTERNAL_FILE_PATH + File.separator + DATABASE_NAME);
-		
-		    byte[] buffer = new byte[1024];
-		    int length;
-		    while ((length = is.read(buffer)) > 0){
-		        os.write(buffer, 0, length);
-		    }
-	    	os.flush();
 
-	    	os.close();
-	    	is.close();
-	    	
-	    	database = SQLiteDatabase.openDatabase(DATABASE_EXTERNAL_FILE_PATH + File.separator + DATABASE_NAME, null, SQLiteDatabase.OPEN_READWRITE);
-	    	Log.d(TAG, "Init DB Finish");
-	    	
+			byte[] buffer = new byte[1024];
+			int length;
+			while ((length = is.read(buffer)) > 0){
+				os.write(buffer, 0, length);
+			}
+			os.flush();
+
+			os.close();
+			is.close();
+
+			database = SQLiteDatabase.openDatabase(DATABASE_EXTERNAL_FILE_PATH + File.separator + DATABASE_NAME, null, SQLiteDatabase.OPEN_READWRITE);
+			Log.d(TAG, "Init DB Finish");
+
 		} catch (IOException e1) {
 			// log, ignore and send back nothing
 			Log.e(TAG, "IO error -- " + e1.getMessage(), e1);
 		}
-				    	
+
 	}
 
 	public void downloadedAsset(String relativePath, String absolutePath) {
@@ -134,25 +140,25 @@ public class WizAssetManager {
 
 		try {
 			// Will replace if exists
-			String sqlInsert = "insert or replace into assets values(?,?);";
+			String sqlInsert = "insert or replace into " + DATABASE_TABLE_NAME + " values(?,?)";
 			database.execSQL(sqlInsert, new Object[] { relativePath, absolutePath });
 		} catch (Exception e) {
 			Log.e(TAG, "error -- " + e.getMessage(), e);
 		}
 	}
-	
+
 	public String getFile(String relpath) {
 		// returns file path to asset from database
 		Cursor cursor = null;
 		try {
 			// Will replace if exists
-			String sqlsearch = "select filePath from assets where uri= ?;";
+			String sqlsearch = "select filePath from " + DATABASE_TABLE_NAME + " where uri= ?";
 			cursor = database.rawQuery(sqlsearch, new String[] { relpath });
 		} catch (Exception e) {
 			Log.e(TAG, "error -- " + e.getMessage(), e);
 			return "";
 		}
-		
+
 		String result;
 		if (cursor != null) {
 			cursor.moveToFirst();
@@ -168,23 +174,46 @@ public class WizAssetManager {
 				Log.e(TAG, "cursor error: " + ex );
 				result = "NotFoundError";
 			}
-			
+
 			Log.d(TAG, "result: " + result );
-			
+
 		} else {
 			// Cursor move error
 			result = "NotFoundError";
 		}
-	    return result;
+		return result;
 	}
 
 	public void deleteFile(String filePath) {
 		try {
 			// Delete file
-			String sqlsearch = "delete from assets where filePath= ?;";
-			database.rawQuery(sqlsearch, new String[] { filePath }).moveToFirst();;
+			database.delete(DATABASE_TABLE_NAME, "filePath like ?", new String[] { filePath + '%' });
 		} catch (Exception e) {
 			Log.e(TAG, "Delete file error -- " + e.getMessage(), e);
 		}
+	}
+
+	public String getAssetsVersion() throws Exception {
+		SharedPreferences sharedPreferences = that.getSharedPreferences(WIZASSETS_PREFERENCES_KEY, Context.MODE_PRIVATE);
+		if (sharedPreferences == null) {
+			throw new Exception("SharedPreferences instance not found");
+		}
+
+		if (!sharedPreferences.contains(ASSETS_VERSION_KEY)) {
+			return null;
+		}
+
+		return sharedPreferences.getString(ASSETS_VERSION_KEY, null);
+	}
+
+	public void updateAssetsVersion(String newVersion) throws Exception {
+		SharedPreferences sharedPreferences = that.getSharedPreferences(WIZASSETS_PREFERENCES_KEY, Context.MODE_PRIVATE);
+		if (sharedPreferences == null) {
+			throw new Exception("SharedPreferences instance not found");
+		}
+
+		Editor editor = sharedPreferences.edit();
+		editor.putString(ASSETS_VERSION_KEY, newVersion);
+		editor.commit();
 	}
 }
