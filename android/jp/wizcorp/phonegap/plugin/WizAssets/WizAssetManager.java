@@ -160,27 +160,23 @@ public class WizAssetManager {
 		}
 
 		String result;
-		if (cursor != null) {
-			cursor.moveToFirst();
-		}
-
-		if (cursor != null) {
-			try {
+		try {
+			if (cursor.moveToFirst()) {
 				result = cursor.getString(0);				
-			} catch (CursorIndexOutOfBoundsException e) {
-				Log.e(TAG, "cursor not found error: " + e );
-				result = "NotFoundError";
-			} catch (Exception ex) {
-				Log.e(TAG, "cursor error: " + ex );
+			} else {
+				// Cursor move error
 				result = "NotFoundError";
 			}
-
-			Log.d(TAG, "result: " + result );
-
-		} else {
-			// Cursor move error
+		} catch (CursorIndexOutOfBoundsException e) {
+			Log.e(TAG, "cursor not found error: " + e );
 			result = "NotFoundError";
+		} catch (Exception ex) {
+			Log.e(TAG, "cursor error: " + ex );
+			result = "NotFoundError";
+		} finally {
+			cursor.close();
 		}
+
 		return result;
 	}
 
