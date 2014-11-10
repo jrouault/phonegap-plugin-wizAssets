@@ -15,6 +15,23 @@ NSString *const assetsErrorKey = @"plugins.wizassets.errors";
 
 @implementation WizAssetsPlugin
 
+@synthesize queue;
+@synthesize isProcessing;
+
+- (void)pluginInitialize {
+    [super pluginInitialize];
+
+    if (floor(NSFoundationVersionNumber) > NSFoundationVersionNumber_iOS_7_1) {
+        queue = [[SimpleQueue alloc] init];
+        isProcessing = false;
+    }
+}
+
+- (void)dealloc {
+    [queue release];
+    [super dealloc];
+}
+
 /*
  *
  * Methods
@@ -48,9 +65,20 @@ NSString *const assetsErrorKey = @"plugins.wizassets.errors";
 
         WizLog(@"downloading ---------------- >%@", url);
 
-        NSData *urlData = [NSData dataWithContentsOfURL:url];
+        NSError *error = nil;
+        NSData *urlData = [NSData dataWithContentsOfURL:url options:NSDataReadingUncached error:&error];
 
-        if (urlData) {
+        // Check if we didn't received a 401
+        // TODO: We might want to find another solution to check for this kind of error, and check other possible errors
+        NSString *dataContent = [[NSString alloc] initWithBytes:[urlData bytes] length:12 encoding:NSUTF8StringEncoding];
+        bool urlUnauthorized = [dataContent isEqualToString:@"Unauthorized"];
+        [dataContent release];
+
+        if (error) {
+            returnString = [NSString stringWithFormat:@"error - %@", error];
+        } else if (urlUnauthorized) {
+            returnString = @"error - url unauthorized";
+        } else if (urlData) {
             if ([filemgr createDirectoryAtPath:fullDir withIntermediateDirectories:YES attributes:nil error: NULL] == YES) {
                 // Success to create directory download data to temp and move to library/cache when complete
                 [urlData writeToFile:filePath atomically:YES];
@@ -81,7 +109,7 @@ NSString *const assetsErrorKey = @"plugins.wizassets.errors";
 /*
  * downloadFile - download from an HTTP to app folder
  */
-- (void)completeDownload:(NSArray*)callbackdata
+- (void)sendCallback:(NSArray*)callbackdata
 {
     // faked the return string for now
     NSString* callbackId = [callbackdata objectAtIndex:0];
@@ -101,8 +129,21 @@ NSString *const assetsErrorKey = @"plugins.wizassets.errors";
         [self writeJavascript: [pluginResult toErrorCallbackString:callbackId]];
 
     }
+}
 
+- (void)completeDownload:(NSArray*)callbackdata
+{
+    [self sendCallback:callbackdata];
 
+    if (queue) {
+        NSDictionary *args = [queue dequeue];
+        if (args) {
+            CDVInvokedUrlCommand *command = [args objectForKey:@"command"];
+            [self performSelectorInBackground:@selector(backgroundDownloadWrapper:) withObject:args];
+        } else {
+            isProcessing = false;
+        }
+    }
 }
 
 
@@ -148,7 +189,7 @@ NSString *const assetsErrorKey = @"plugins.wizassets.errors";
             NSArray *callbackData = [[NSArray alloc] initWithObjects:command.callbackId, returnString, nil];
 
             // download complete pass back confirmation to JS
-            [self completeDownload:callbackData];
+            [self sendCallback:callbackData];
 
             [callbackData release];
 
@@ -158,8 +199,12 @@ NSString *const assetsErrorKey = @"plugins.wizassets.errors";
                                   fullDir, @"fullDir",
                                   filePath, @"filePath",
                                   nil];
-            // start in background, pass though strings
-            [self performSelectorInBackground:@selector(backgroundDownloadWrapper:) withObject:args];
+            if (queue && isProcessing) {
+                [queue enqueue:args];
+            } else {
+                isProcessing = true;
+                [self performSelectorInBackground:@selector(backgroundDownloadWrapper:) withObject:args];
+            }
         }
         // clean up
         [pathSpliter release];

@@ -10,12 +10,18 @@
 #import <Foundation/Foundation.h>
 #import <UIKit/UIKit.h>
 #import <Cordova/CDVPlugin.h>
+#import "SimpleQueue.h"
 
 @interface WizAssetsPlugin : CDVPlugin <UIWebViewDelegate> {
 
     int scanCounter;
     NSMutableArray *storePaths;
+
+    SimpleQueue *queue;
+    bool isProcessing;
 }
+
+- (void)pluginInitialize;
 
 /*
  *  WizAssetsPlugin methods
@@ -30,5 +36,8 @@
 // - (void)purgeEmptyDirectories:(CDVInvokedUrlCommand*)command;
 
 - (void)backgroundDownload:(CDVInvokedUrlCommand*)command fullDir:(NSString *)fullDir filePath:(NSString *)filePath;
+
+@property (nonatomic) SimpleQueue *queue;
+@property (nonatomic) bool isProcessing;
 
 @end
