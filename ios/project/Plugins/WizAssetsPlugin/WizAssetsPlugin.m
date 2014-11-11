@@ -68,18 +68,18 @@ NSString *const assetsErrorKey = @"plugins.wizassets.errors";
         NSError *error = nil;
         NSData *urlData = [NSData dataWithContentsOfURL:url options:NSDataReadingUncached error:&error];
 
-        // Check if we didn't received a 401
-        // TODO: We might want to find another solution to check for this kind of error, and check other possible errors
-        NSString *dataContent = [[NSString alloc] initWithBytes:[urlData bytes] length:12 encoding:NSUTF8StringEncoding];
-        bool urlUnauthorized = [dataContent isEqualToString:@"Unauthorized"];
-        [dataContent release];
-
         if (error) {
             returnString = [NSString stringWithFormat:@"error - %@", error];
-        } else if (urlUnauthorized) {
-            returnString = @"error - url unauthorized";
         } else if (urlData) {
-            if ([filemgr createDirectoryAtPath:fullDir withIntermediateDirectories:YES attributes:nil error: NULL] == YES) {
+            // Check if we didn't received a 401
+            // TODO: We might want to find another solution to check for this kind of error, and check other possible errors
+            NSString *dataContent = [[NSString alloc] initWithBytes:[urlData bytes] length:12 encoding:NSUTF8StringEncoding];
+            bool urlUnauthorized = [dataContent isEqualToString:@"Unauthorized"];
+            [dataContent release];
+
+            if (urlUnauthorized) {
+                returnString = @"error - url unauthorized";
+            } else if ([filemgr createDirectoryAtPath:fullDir withIntermediateDirectories:YES attributes:nil error: NULL] == YES) {
                 // Success to create directory download data to temp and move to library/cache when complete
                 [urlData writeToFile:filePath atomically:YES];
 
@@ -138,7 +138,6 @@ NSString *const assetsErrorKey = @"plugins.wizassets.errors";
     if (queue) {
         NSDictionary *args = [queue dequeue];
         if (args) {
-            CDVInvokedUrlCommand *command = [args objectForKey:@"command"];
             [self performSelectorInBackground:@selector(backgroundDownloadWrapper:) withObject:args];
         } else {
             isProcessing = false;
@@ -199,10 +198,32 @@ NSString *const assetsErrorKey = @"plugins.wizassets.errors";
                                   fullDir, @"fullDir",
                                   filePath, @"filePath",
                                   nil];
-            if (queue && isProcessing) {
-                [queue enqueue:args];
+            if (queue) {
+                NSString *urlString = [command.arguments objectAtIndex:0];
+                if (urlString) {
+                    NSRegularExpression *regex = [NSRegularExpression regularExpressionWithPattern:@".+?//.+?:.+@.+"
+                                                                                           options:NSRegularExpressionCaseInsensitive
+                                                                                             error:nil];
+                    NSUInteger numberMatches = [regex numberOfMatchesInString:urlString
+                                                                      options:0
+                                                                        range:NSMakeRange(0, [urlString length])];
+                    bool isBasicAuthUrl = numberMatches > 0 ? true : false;
+                    if (isBasicAuthUrl) {
+                        if (isProcessing) {
+                            [queue enqueue:args];
+                        } else {
+                            isProcessing = true;
+                            [self performSelectorInBackground:@selector(backgroundDownloadWrapper:) withObject:args];
+                        }
+                    } else {
+                        [self performSelectorInBackground:@selector(backgroundDownloadWrapper:) withObject:args];
+                    }
+                } else {
+                    NSString *returnString = @"error - bad url";
+                    NSArray *callbackData = [[NSArray alloc] initWithObjects:command.callbackId, returnString, nil];
+                    [self sendCallback:callbackData];
+                }
             } else {
-                isProcessing = true;
                 [self performSelectorInBackground:@selector(backgroundDownloadWrapper:) withObject:args];
             }
         }
