@@ -201,7 +201,7 @@ NSString *const assetsErrorKey = @"plugins.wizassets.errors";
             if (queue) {
                 NSString *urlString = [command.arguments objectAtIndex:0];
                 if (urlString) {
-                    NSRegularExpression *regex = [NSRegularExpression regularExpressionWithPattern:@".+?//.+?:.+@.+"
+                    NSRegularExpression *regex = [NSRegularExpression regularExpressionWithPattern:@".+//.+:.+@.+"
                                                                                            options:NSRegularExpressionCaseInsensitive
                                                                                              error:nil];
                     NSUInteger numberMatches = [regex numberOfMatchesInString:urlString
