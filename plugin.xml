@@ -36,6 +36,9 @@
         <!-- Plugin files -->
         <header-file src="ios/project/Plugins/WizAssetsPlugin/WizAssetsPlugin.h" />
         <source-file src="ios/project/Plugins/WizAssetsPlugin/WizAssetsPlugin.m" compiler-flags="-fno-objc-arc" />
+
+        <header-file src="ios/project/Plugins/WizAssetsPlugin/SimpleQueue.h" />
+        <source-file src="ios/project/Plugins/WizAssetsPlugin/SimpleQueue.m" compiler-flags="-fno-objc-arc" />
         	
         <!-- Logger -->
         <source-file src="ios/project/Plugins/WizAssetsPlugin/WizDebugLog.h" compiler-flags="-fno-objc-arc" />

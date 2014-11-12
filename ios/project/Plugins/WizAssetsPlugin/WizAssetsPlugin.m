@@ -15,6 +15,29 @@ NSString *const assetsErrorKey = @"plugins.wizassets.errors";
 
 @implementation WizAssetsPlugin
 
+@synthesize queue;
+@synthesize isProcessing;
+
+- (void)pluginInitialize {
+    [super pluginInitialize];
+
+    NSProcessInfo *processInfo = [NSProcessInfo processInfo];
+
+    // If operatingSystemVersion is not available, it means it is not at least iOS 8
+    if ([processInfo respondsToSelector:@selector(operatingSystemVersion)]) {
+        NSOperatingSystemVersion osVersion = [processInfo operatingSystemVersion];
+        if (osVersion.majorVersion == 8) {
+            queue = [[SimpleQueue alloc] init];
+            isProcessing = false;
+        }
+    }
+}
+
+- (void)dealloc {
+    [queue release];
+    [super dealloc];
+}
+
 /*
  *
  * Methods
@@ -48,10 +71,21 @@ NSString *const assetsErrorKey = @"plugins.wizassets.errors";
 
         WizLog(@"downloading ---------------- >%@", url);
 
-        NSData *urlData = [NSData dataWithContentsOfURL:url];
+        NSError *error = nil;
+        NSData *urlData = [NSData dataWithContentsOfURL:url options:NSDataReadingUncached error:&error];
 
-        if (urlData) {
-            if ([filemgr createDirectoryAtPath:fullDir withIntermediateDirectories:YES attributes:nil error: NULL] == YES) {
+        if (error) {
+            returnString = [NSString stringWithFormat:@"error - %@", error];
+        } else if (urlData) {
+            // Check if we didn't received a 401
+            // TODO: We might want to find another solution to check for this kind of error, and check other possible errors
+            NSString *dataContent = [[NSString alloc] initWithBytes:[urlData bytes] length:12 encoding:NSUTF8StringEncoding];
+            bool urlUnauthorized = [dataContent isEqualToString:@"Unauthorized"];
+            [dataContent release];
+
+            if (urlUnauthorized) {
+                returnString = @"error - url unauthorized";
+            } else if ([filemgr createDirectoryAtPath:fullDir withIntermediateDirectories:YES attributes:nil error: NULL] == YES) {
                 // Success to create directory download data to temp and move to library/cache when complete
                 [urlData writeToFile:filePath atomically:YES];
 
@@ -81,7 +115,7 @@ NSString *const assetsErrorKey = @"plugins.wizassets.errors";
 /*
  * downloadFile - download from an HTTP to app folder
  */
-- (void)completeDownload:(NSArray*)callbackdata
+- (void)sendCallback:(NSArray*)callbackdata
 {
     // faked the return string for now
     NSString* callbackId = [callbackdata objectAtIndex:0];
@@ -101,8 +135,20 @@ NSString *const assetsErrorKey = @"plugins.wizassets.errors";
         [self writeJavascript: [pluginResult toErrorCallbackString:callbackId]];
 
     }
+}
 
+- (void)completeDownload:(NSArray*)callbackdata
+{
+    [self sendCallback:callbackdata];
 
+    if (queue) {
+        NSDictionary *args = [queue dequeue];
+        if (args) {
+            [self performSelectorInBackground:@selector(backgroundDownloadWrapper:) withObject:args];
+        } else {
+            isProcessing = false;
+        }
+    }
 }
 
 
@@ -148,7 +194,7 @@ NSString *const assetsErrorKey = @"plugins.wizassets.errors";
             NSArray *callbackData = [[NSArray alloc] initWithObjects:command.callbackId, returnString, nil];
 
             // download complete pass back confirmation to JS
-            [self completeDownload:callbackData];
+            [self sendCallback:callbackData];
 
             [callbackData release];
 
@@ -158,8 +204,34 @@ NSString *const assetsErrorKey = @"plugins.wizassets.errors";
                                   fullDir, @"fullDir",
                                   filePath, @"filePath",
                                   nil];
-            // start in background, pass though strings
-            [self performSelectorInBackground:@selector(backgroundDownloadWrapper:) withObject:args];
+            if (queue) {
+                NSString *urlString = [command.arguments objectAtIndex:0];
+                if (urlString) {
+                    NSRegularExpression *regex = [NSRegularExpression regularExpressionWithPattern:@".+//.+:.+@.+"
+                                                                                           options:NSRegularExpressionCaseInsensitive
+                                                                                             error:nil];
+                    NSUInteger numberMatches = [regex numberOfMatchesInString:urlString
+                                                                      options:0
+                                                                        range:NSMakeRange(0, [urlString length])];
+                    bool isBasicAuthUrl = numberMatches > 0 ? true : false;
+                    if (isBasicAuthUrl) {
+                        if (isProcessing) {
+                            [queue enqueue:args];
+                        } else {
+                            isProcessing = true;
+                            [self performSelectorInBackground:@selector(backgroundDownloadWrapper:) withObject:args];
+                        }
+                    } else {
+                        [self performSelectorInBackground:@selector(backgroundDownloadWrapper:) withObject:args];
+                    }
+                } else {
+                    NSString *returnString = @"error - bad url";
+                    NSArray *callbackData = [[NSArray alloc] initWithObjects:command.callbackId, returnString, nil];
+                    [self sendCallback:callbackData];
+                }
+            } else {
+                [self performSelectorInBackground:@selector(backgroundDownloadWrapper:) withObject:args];
+            }
         }
         // clean up
         [pathSpliter release];
