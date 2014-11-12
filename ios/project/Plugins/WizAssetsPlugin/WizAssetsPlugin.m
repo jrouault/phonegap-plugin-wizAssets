@@ -21,9 +21,15 @@ NSString *const assetsErrorKey = @"plugins.wizassets.errors";
 - (void)pluginInitialize {
     [super pluginInitialize];
 
-    if (floor(NSFoundationVersionNumber) > NSFoundationVersionNumber_iOS_7_1) {
-        queue = [[SimpleQueue alloc] init];
-        isProcessing = false;
+    NSProcessInfo *processInfo = [NSProcessInfo processInfo];
+
+    // If operatingSystemVersion is not available, it means it is not at least iOS 8
+    if ([processInfo respondsToSelector:@selector(operatingSystemVersion)]) {
+        NSOperatingSystemVersion osVersion = [processInfo operatingSystemVersion];
+        if (osVersion.majorVersion == 8) {
+            queue = [[SimpleQueue alloc] init];
+            isProcessing = false;
+        }
     }
 }
 
