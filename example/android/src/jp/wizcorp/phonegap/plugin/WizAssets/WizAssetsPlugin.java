@@ -19,7 +19,9 @@ import java.net.URL;
 import java.util.Date;
 import java.util.zip.GZIPInputStream;
 
+import android.annotation.SuppressLint;
 import android.os.AsyncTask;
+import android.os.Build;
 import android.util.Base64;
 import org.apache.cordova.CallbackContext;
 import org.apache.cordova.CordovaInterface;
@@ -69,46 +71,45 @@ public class WizAssetsPlugin extends CordovaPlugin {
 		}
 
 		if (action.equals(DOWNLOAD_FILE_ACTION)) {
-			Log.d(TAG, "[downloadFile] *********** "+args.toString() );
-			try {
-				// Split by "/"
-				String[] splitURL = args.getString(1).split("/");
+			final String url = args.getString(0);
+			final String fileURL = args.getString(1);
+			final CallbackContext _callbackContext = callbackContext;
+			cordova.getThreadPool().execute(new Runnable() {
+				public void run() {
+					// Split by "/"
+					String[] splitURL = fileURL.split("/");
+					// Last element is name
+					String fileName = splitURL[splitURL.length - 1];
 
-				// Last element is name
-				String fileName = splitURL[splitURL.length-1];
+					String dirName = "";
+					for (int i=0; i < splitURL.length-1; i++) {
+						dirName = dirName + splitURL[i] + "/";
+					}
+					String uri = dirName + fileName;
+					String filePath = buildAssetFilePathFromUri(uri);
+					String asset = getAssetFilePathFromUri(uri);
+					File file = new File(filePath);
+					if (asset != null && file.exists()) {
+						Log.d(TAG, "[Is in cache] " + fileURL);
+						// File is already in cache folder, don't download it
 
-				String dirName = "";
-				for (int i=0; i < splitURL.length-1; i++) {
-					dirName = dirName+splitURL[i] + "/";
+						// Update the modification date of the file
+						file.setLastModified(new Date().getTime());
+
+						String result = "file://" + file.getAbsolutePath();
+
+						_callbackContext.success(result);
+					} else {
+						// File is not in cache folder, download it
+
+						PluginResult result = new PluginResult(PluginResult.Status.NO_RESULT);
+						result.setKeepCallback(true);
+						_callbackContext.sendPluginResult(result);
+						downloadUrl(url, dirName, fileName, "true", _callbackContext);
+					}
 				}
-
-				String uri = dirName + fileName;
-				String filePath = buildAssetFilePathFromUri(uri);
-				String asset = getAssetFilePathFromUri(uri);
-				File file = new File(filePath);
-				if (asset != null && file.exists()) {
-					// File is already in cache folder, don't download it
-
-					// Update the modification date of the file
-					file.setLastModified(new Date().getTime());
-
-					String result = "file://" + file.getAbsolutePath();
-
-					callbackContext.success(result);
-				} else {
-					// File is not in cache folder, download it
-
-					PluginResult result = new PluginResult(PluginResult.Status.NO_RESULT);
-					result.setKeepCallback(true);
-					callbackContext.sendPluginResult(result);
-					downloadUrl(args.getString(0), dirName, fileName, "true", callbackContext);
-				}
-
-				return true;
-			} catch (JSONException e) {
-				callbackContext.error("Param errrors");
-				return true;
-			}
+			});
+			return true;
 
 		} else if (action.equals(GET_FILE_URI_ACTION)) {
 
@@ -255,10 +256,14 @@ public class WizAssetsPlugin extends CordovaPlugin {
 		}
 	}
 
+	@SuppressLint("NewApi")
 	private void downloadUrl(String fileUrl, String dirName, String fileName, String overwrite, CallbackContext callbackContext){
 		// Download files to sdcard, or phone if sdcard not exists
-		Log.d(TAG, "file URL: " + fileUrl);
-		new asyncDownload(fileUrl, dirName, fileName, overwrite, callbackContext).execute();
+		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.HONEYCOMB) {
+			new asyncDownload(fileUrl, dirName, fileName, overwrite, callbackContext).executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
+		} else {
+			new asyncDownload(fileUrl, dirName, fileName, overwrite, callbackContext).execute();
+		}
 	}
 
 	public class DeleteAssetsCallback {
@@ -400,7 +405,7 @@ public class WizAssetsPlugin extends CordovaPlugin {
 
 			String filePath = buildAssetFilePathFromUri(this.dirName + this.fileName);
 			File file = new File(filePath);
-			Log.d(TAG, "[downloadUrl] *********** pathTostorage pathTostorage+dirName+fileName > " + file.getAbsolutePath());
+			Log.d(TAG, "[Downloading] " + file.getAbsolutePath());
 
 			if (this.overwrite.equals("false") && file.exists()){
 				Log.d(TAG, "File already exists.");
@@ -458,6 +463,7 @@ public class WizAssetsPlugin extends CordovaPlugin {
 				this.callbackContext.success(result);
 
 				// Tell Asset Manager to register this download to asset database
+				Log.d(TAG, "[Downloaded ] " + file.getAbsolutePath());
 				wizAssetManager.downloadedAsset(this.dirName + this.fileName, file.getAbsolutePath());
 
 			} catch (MalformedURLException e) {
