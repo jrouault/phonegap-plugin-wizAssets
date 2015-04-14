@@ -136,8 +136,6 @@ public class WizAssetManager {
 
 	public void downloadedAsset(String relativePath, String absolutePath) {
 		// Downloaded file, add / edit database
-		Log.d(TAG, "Downloaded Asset - relativePath: " + relativePath + "  -   absolutePath: " + absolutePath);
-
 		try {
 			// Will replace if exists
 			String sqlInsert = "insert or replace into " + DATABASE_TABLE_NAME + " values(?,?)";
